@@ -82,6 +82,178 @@ os_map = {
     "MacOS": 3,
     "Linux": 4
 }
+@app.route("/ads", methods=["GET"])
+def get_ads():
+
+    conn = sqlite3.connect("adfraud.db")
+    cursor = conn.cursor()
+
+    ads = cursor.execute("SELECT * FROM ads").fetchall()
+
+    conn.close()
+
+    ads_list = []
+
+    for ad in ads:
+        ads_list.append({
+            "id": ad[0],
+            "title": ad[1],
+            "desc": ad[2],
+            "img": ad[3],
+            "app": ad[4],
+            "channel": ad[5]
+        })
+
+    return jsonify(ads_list)
+
+@app.route("/create-ad", methods=["POST"])
+def create_ad():
+
+    data = request.json
+
+    title = data["title"]
+    description = data["desc"]
+    image = data["img"]
+
+    conn = sqlite3.connect("adfraud.db")
+    cursor = conn.cursor()
+
+    # get last ad
+    cursor.execute("""
+        SELECT app, channel
+        FROM ads
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+    last = cursor.fetchone()
+
+    if last:
+        app_id = last[0] + 10
+        channel = last[1] + 1
+    else:
+        app_id = 10
+        channel = 1
+
+    cursor.execute("""
+        INSERT INTO ads(title,description,image,app,channel)
+        VALUES(?,?,?,?,?)
+    """,(title,description,image,app_id,channel))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "message":"Ad created",
+        "app": app_id,
+        "channel": channel
+    })
+
+@app.route("/stats/<int:app_id>")
+def stats(app_id):
+
+    conn = sqlite3.connect("adfraud.db")
+    cursor = conn.cursor()
+
+    total = cursor.execute("""
+        SELECT COUNT(*)
+        FROM click_logs
+        WHERE app=?
+    """,(app_id,)).fetchone()[0]
+
+    fraud = cursor.execute("""
+        SELECT COUNT(*)
+        FROM click_logs
+        WHERE app=? AND fraud_prediction=1
+    """,(app_id,)).fetchone()[0]
+
+    genuine = total - fraud
+
+    fraud_rate = (fraud/total)*100 if total else 0
+
+    conn.close()
+
+    return jsonify({
+        "total": total,
+        "fraud": fraud,
+        "genuine": genuine,
+        "fraud_rate": round(fraud_rate,2)
+    })
+
+@app.route("/sessions", methods=["GET"])
+def sessions():
+
+    conn = sqlite3.connect("adfraud.db")
+    cursor = conn.cursor()
+
+    rows = cursor.execute("""
+    SELECT click_time, app, ip, fraud_prediction
+    FROM click_logs
+    ORDER BY click_time DESC
+    LIMIT 10
+    """).fetchall()
+
+    conn.close()
+
+    result = []
+
+    for r in rows:
+
+        fraud = r[3]
+
+        status = "FRAUD" if fraud == 1 else "SERVING"
+        risk = "High" if fraud == 1 else "Low"
+
+        result.append({
+            "time": r[0],
+            "ad": f"Ad {r[1]}",
+            "sessionId": r[2][:10],
+            "clicks": 1,
+            "minGap": "N/A",
+            "maxGap": "N/A",
+            "status": status,
+            "risk": risk
+        })
+
+    return jsonify(result)
+
+@app.route("/ad-performance")
+def ad_performance():
+
+    conn = sqlite3.connect("adfraud.db")
+    cursor = conn.cursor()
+
+    rows = cursor.execute("""
+        SELECT ads.title,
+            click_logs.app,
+            COUNT(*) as total,
+            SUM(CASE WHEN fraud_prediction=1 THEN 1 ELSE 0 END) as fraud
+        FROM click_logs
+        JOIN ads ON ads.app = click_logs.app
+        GROUP BY click_logs.app
+        """).fetchall()
+
+    conn.close()
+
+    result = []
+
+    for r in rows:
+
+        title = r[0]
+        total = r[2]
+        fraud = r[3] or 0
+
+        fraud_rate = (fraud/total)*100 if total else 0
+
+        result.append({
+            "name": title,
+            "totalClicks": total,
+            "fraudClicks": fraud,
+            "fraudRate": f"{fraud_rate:.1f}%"
+        })
+
+    return jsonify(result)
+
+
 
 @app.route("/ad-click", methods=["POST"])
 def ad_click():
@@ -139,7 +311,7 @@ def ad_click():
 
     if prev_app:
         rev_time = datetime.fromisoformat(prev_app[0].replace("Z",""))
-        ip_app_time_diff = (dt - prev_time).total_seconds()
+        ip_app_time_diff = (dt - rev_time).total_seconds()
     else:
         ip_app_time_diff = 999999
 
@@ -195,17 +367,7 @@ def ad_click():
     os_te = os_encoded
     channel_te = channel
 
-    # -------------------------
-    # STORE CLICK
-    # -------------------------
 
-    cursor.execute("""
-        INSERT INTO click_logs(ip,app,device,os,channel,click_time)
-        VALUES(?,?,?,?,?,?)
-    """,(ip,app_id,device,os,channel,click_time))
-
-    conn.commit()
-    conn.close()
 
     # -------------------------
     # MODEL FEATURES
@@ -237,17 +399,41 @@ def ad_click():
     fraud_result=0
 
     # fast click detection
+    fraud_result = 0
+
+    # fast click detection
     if ip_time_diff < 0.5:
         fraud_result = 1
-        print("if")
+        print("Fast click detected")
 
-    elif ip_count > 15:
-        fraud_result = 1
-        print("rlsr if")
-
+    # burst detection in last 10 seconds
     else:
-        prediction = model.predict(features)
-        fraud_result = int(prediction[0])
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM click_logs
+            WHERE ip=? AND datetime(click_time) >= datetime(?,'-10 seconds')
+        """,(ip, click_time))
+
+        recent_clicks = cursor.fetchone()[0]
+
+        if recent_clicks > 10:
+            fraud_result = 1
+            print("Burst attack detected")
+
+        else:
+            prediction = model.predict(features)
+            fraud_result = int(prediction[0])
+
+
+    # store click
+    cursor.execute("""
+    INSERT INTO click_logs
+    (ip,app,device,os,channel,click_time,fraud_prediction)
+    VALUES(?,?,?,?,?,?,?)
+    """,(ip,app_id,device,os,channel,click_time,fraud_result))
+
+    conn.commit()
+    conn.close()
 
     return jsonify({
         "fraud_prediction": fraud_result

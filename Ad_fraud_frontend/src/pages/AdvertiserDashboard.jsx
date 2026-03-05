@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const statusBadge = (status) => {
+
   const map = {
     SERVING: { bg: "#22c55e", label: "SERVING" },
     FRAUD: { bg: "#ef4444", label: "FRAUD" },
     PAUSED: { bg: "#f59e0b", label: "PAUSED" },
   };
+  
   const s = map[status] || map["SERVING"];
   return (
     <span
@@ -38,36 +40,52 @@ const riskBadge = (risk) => {
 };
 
 export default function AdvertiserDashboard() {
-  const [activeTab, setActiveTab] = useState("Analytics");
 
-  const sessions = [
-    {
-      time: "2025-02-09 10:36:12",
-      ad: "Mobile Puzzle",
-      sessionId: "muzzler_374...",
-      clicks: 3,
-      minGap: "3.11s",
-      maxGap: "7.42s",
-      status: "SERVING",
-      risk: "Low",
-    },
-    {
-      time: "2025-07-04 10:31:37",
-      ad: "New RPG Game",
-      sessionId: "warrior_176...",
-      clicks: 17,
-      minGap: "0.78s",
-      maxGap: "0.2s",
-      status: "FRAUD",
-      risk: "High",
-    },
-  ];
+  const [sessions,setSessions] = useState([]);
+  const [stats,setStats] = useState({});
+  const [ads,setAds] = useState([]);
 
-  const riskDistribution = [
-    { label: "Low Risk", color: "#22c55e", value: 1, max: 10 },
-    { label: "Medium Risk", color: "#f59e0b", value: 8, max: 10 },
-    { label: "High Risk", color: "#ef4444", value: 1, max: 10 },
-  ];
+  useEffect(()=>{
+
+  const loadData = async () => {
+
+    const adsData = await fetch("http://127.0.0.1:5000/ad-performance")
+    .then(r=>r.json())
+
+    const sessionsData = await fetch("http://127.0.0.1:5000/sessions")
+    .then(r=>r.json())
+
+    setAds(adsData)
+    setSessions(sessionsData)
+
+    // calculate overall stats from ads
+    let total = 0
+    let fraud = 0
+
+    adsData.forEach(ad=>{
+      total += ad.totalClicks
+      fraud += ad.fraudClicks
+    })
+
+    const genuine = total - fraud
+    
+    const fraud_rate = total ? ((fraud/total)*100).toFixed(2) : 0
+
+    setStats({
+      total,
+      fraud,
+      genuine,
+      fraud_rate
+    })
+  }
+
+  loadData()
+
+  const interval = setInterval(loadData,5000)
+
+  return ()=>clearInterval(interval)
+
+},[])
 
   return (
     <div
@@ -78,6 +96,7 @@ export default function AdvertiserDashboard() {
         padding: 0,
       }}
     >
+
       {/* Top Nav */}
       <div
         style={{
@@ -112,69 +131,6 @@ export default function AdvertiserDashboard() {
             Advertiser Dashboard
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ color: "#94a3b8", fontSize: 13 }}>GameStudio</span>
-          <span
-            style={{
-              background: "#ef4444",
-              color: "#fff",
-              padding: "3px 10px",
-              borderRadius: 4,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Live ●
-          </span>
-        </div>
-      </div>
-
-      {/* Sub Nav */}
-      <div
-        style={{
-          background: "#fff",
-          borderBottom: "1px solid #e5e7eb",
-          padding: "0 24px",
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          height: 44,
-        }}
-      >
-        {["Analytics", "My Ads"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: "6px 16px",
-              borderRadius: 6,
-              border: "none",
-              background: activeTab === tab ? "#3b82f6" : "transparent",
-              color: activeTab === tab ? "#fff" : "#6b7280",
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-          >
-            {tab === "Analytics" ? "📊 " : "📋 "}{tab}
-          </button>
-        ))}
-        <button
-          style={{
-            padding: "6px 16px",
-            borderRadius: 6,
-            border: "1.5px dashed #d1d5db",
-            background: "transparent",
-            color: "#9ca3af",
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: "pointer",
-          }}
-        >
-          + Create Ad
-        </button>
       </div>
 
       {/* Main Content */}
@@ -184,11 +140,11 @@ export default function AdvertiserDashboard() {
         <Section title="🖱️ Click Statistics">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
             {[
-              { label: "TOTAL CLICKS", value: "55", color: "#1e2433" },
-              { label: "GENUINE CLICKS", value: "12", color: "#22c55e" },
-              { label: "FRAUDULENT CLICKS", value: "43", color: "#ef4444" },
-              { label: "FRAUD RATE", value: "78.2%", color: "#ef4444" },
-            ].map((stat) => (
+              { label: "TOTAL CLICKS", value: stats.total || 0, color:"#1e2433"},
+              { label: "GENUINE CLICKS", value: stats.genuine || 0, color:"#22c55e"},
+              { label: "FRAUDULENT CLICKS", value: stats.fraud || 0, color:"#ef4444"},
+              { label: "FRAUD RATE", value: `${stats.fraud_rate || 0}%`, color:"#ef4444"}
+              ].map((stat) => (
               <div
                 key={stat.label}
                 style={{
@@ -213,78 +169,45 @@ export default function AdvertiserDashboard() {
         {/* Ad Performance */}
         <Section title="📈 Ad Performance">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {[
-              { name: "New RPG Game", totalClicks: 33, fraudClicks: 27, impressionRate: "81.8%", fraudRate: null },
-              { name: "Mobile Puzzle", totalClicks: 22, fraudClicks: 16, impressionRate: null, fraudRate: "72.7%" },
-            ].map((ad) => (
+            {
+              ads.map((ad)=>{
+
+              const genuineClicks = ad.totalClicks - ad.fraudClicks;
+
+              return(
+
               <div
-                key={ad.name}
-                style={{
-                  background: "#f8fafc",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 10,
-                  padding: "14px 18px",
-                }}
+              key={ad.name}
+              style={{
+              background: "#f8fafc",
+              border: "1px solid #e5e7eb",
+              borderRadius: 10,
+              padding: "14px 18px",
+              }}
               >
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#1e2433", marginBottom: 10 }}>
-                  {ad.name}
-                </div>
-                <div style={{ display: "flex", gap: 20 }}>
-                  <Stat label="Total Clicks" value={ad.totalClicks} color="#1e2433" />
-                  <Stat label="Fraud Clicks" value={ad.fraudClicks} color="#ef4444" />
-                  <Stat
-                    label="Fraud Rate"
-                    value={ad.impressionRate || ad.fraudRate}
-                    color="#f59e0b"
-                  />
-                </div>
+
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#1e2433", marginBottom: 10 }}>
+              {ad.name}
               </div>
-            ))}
+
+              <div style={{ display: "flex",gap: 18, flexWrap:"wrap" }}>
+              <Stat label="Total Clicks" value={ad.totalClicks} color="#1e2433" />
+              <Stat label="Genuine Clicks" value={genuineClicks} color="#22c55e" />
+              <Stat label="Fraud Clicks" value={ad.fraudClicks} color="#ef4444" />
+              <Stat label="Fraud Rate" value={ad.fraudRate} color="#f59e0b" />
+              </div>
+
+              </div>
+
+              )
+              })
+            }
           </div>
         </Section>
 
         {/* Recent Sessions */}
-        <Section
-          title="🕐 Recent Sessions"
-          action={
-            <span
-              style={{
-                fontSize: 11,
-                color: "#3b82f6",
-                background: "#eff6ff",
-                padding: "3px 10px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              See detail ON Live 12:00 PM
-            </span>
-          }
-        >
-          {/* Filter pills */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            {["Visitors", "Auto Detected: 67%"].map((f, i) => (
-              <span
-                key={f}
-                style={{
-                  background: i === 0 ? "#1e2433" : "#dcfce7",
-                  color: i === 0 ? "#fff" : "#166534",
-                  padding: "3px 10px",
-                  borderRadius: 4,
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              >
-                {f}
-              </span>
-            ))}
-            <span style={{ fontSize: 12, color: "#9ca3af", alignSelf: "center" }}>
-              Auto-detection every 3 seconds
-            </span>
-          </div>
-
-          {/* Table */}
+        <Section title="🕐 Recent Sessions">
+          
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
@@ -330,84 +253,15 @@ export default function AdvertiserDashboard() {
               </tbody>
             </table>
           </div>
+
         </Section>
 
-        {/* Fraud Analysis */}
-        <Section title="🔍 Fraud Analysis">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-            {/* Risk Distribution */}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#1e2433", marginBottom: 14 }}>
-                Risk Distribution
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {riskDistribution.map((r) => (
-                  <div key={r.label}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>{r.label}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1e2433" }}>{r.value}</span>
-                    </div>
-                    <div
-                      style={{
-                        height: 8,
-                        background: "#e5e7eb",
-                        borderRadius: 4,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${(r.value / r.max) * 100}%`,
-                          background: r.color,
-                          borderRadius: 4,
-                          transition: "width 0.6s ease",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Financial Impact */}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#1e2433", marginBottom: 14 }}>
-                Financial Impact
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {[
-                  { label: "Cost per Click", value: "$0.50", color: "#1e2433" },
-                  { label: "Money Lost to Fraud", value: "$21.50", color: "#ef4444" },
-                  { label: "Money Saved", value: "$6.00", color: "#22c55e" },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "10px 14px",
-                      background: "#f8fafc",
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                    }}
-                  >
-                    <span style={{ fontSize: 13, color: "#6b7280" }}>{item.label}</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: item.color }}>
-                      {item.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Section>
       </div>
     </div>
   );
 }
 
-function Section({ title, children, action }) {
+function Section({ title, children }) {
   return (
     <div
       style={{
@@ -428,7 +282,6 @@ function Section({ title, children, action }) {
         }}
       >
         <div style={{ fontWeight: 700, fontSize: 15, color: "#1e2433" }}>{title}</div>
-        {action}
       </div>
       {children}
     </div>

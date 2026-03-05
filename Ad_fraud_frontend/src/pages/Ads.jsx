@@ -1,23 +1,25 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const Ads = () => {
 
-  const ads = [
-    { id: 1, title: "Buy iPhone 15", desc: "Latest Apple smartphone", img: "https://via.placeholder.com/200", app: 10, channel: 1 },
-    { id: 2, title: "Nike Shoes", desc: "Comfort & Style", img: "https://via.placeholder.com/200", app: 20, channel: 2 },
-    { id: 3, title: "Laptop Sale", desc: "Up to 40% OFF", img: "https://via.placeholder.com/200", app: 30, channel: 1 },
-    { id: 4, title: "Headphones", desc: "Best Sound Quality", img: "https://via.placeholder.com/200", app: 40, channel: 3 }
-  ];
+  const [ads, setAds] = useState([]);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:5000/ads")
+      .then(res => res.json())
+      .then(data => setAds(data));
+  }, []);
 
   const cardStyle = {
-    background: "#fff",
+    background: "#ffffff",
     padding: "15px",
-    borderRadius: "10px",
-    width: "220px",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+    borderRadius: "12px",
+    width: "240px",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
     cursor: "pointer",
     textAlign: "center",
-    transition: "0.3s"
+    transition: "all 0.25s ease",
+    border: "1px solid #e5e7eb"
   };
 
   const handleAdClick = async (ad) => {
@@ -45,46 +47,69 @@ const Ads = () => {
       click_time: click_time
     };
 
-    console.log("Sending data to server:", clickData);
+    const response = await fetch("http://127.0.0.1:5000/ad-click", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(clickData)
+    });
 
-    try {
-      const response = await fetch("http://127.0.0.1:5000/ad-click", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(clickData)
-      });
-
-      const data = await response.json();
-      console.log("Server Response:", data);
-
-    } catch (error) {
-      console.error("Error connecting to server:", error);
-    }
+    const data = await response.json();
+    console.log(data);
   };
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <h2>Ads</h2>
+    <div style={pageStyle}>
 
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+      <div style={adsContainer}>
         {ads.map((ad) => (
           <div
             key={ad.id}
             style={cardStyle}
             onClick={() => handleAdClick(ad)}
-            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
           >
-            <img src={ad.img} alt={ad.title} style={{ width: "100%" }} />
-            <h3>{ad.title}</h3>
-            <p>{ad.desc}</p>
+            <img 
+              src={ad.img} 
+              alt={ad.title} 
+              style={{
+                width: "100%",
+                height: "150px",
+                objectFit: "cover",
+                borderRadius: "8px"
+              }} 
+            />
+
+            <h3 style={{margin:"10px 0 5px 0", color:"#1e293b"}}>
+              {ad.title}
+            </h3>
+
+            <p style={{fontSize:"14px", color:"#64748b"}}>
+              {ad.desc}
+            </p>
           </div>
         ))}
       </div>
+
     </div>
   );
+};
+
+const pageStyle = {
+  minHeight: "100vh",
+  padding: "40px",
+  fontFamily: "DM Sans",
+  background: "linear-gradient(135deg,#eef2ff,#f8fafc,#e0f2fe)"
+};
+
+const headerStyle = {
+  marginBottom: "30px"
+};
+
+const adsContainer = {
+  display: "flex",
+  gap: "25px",
+  flexWrap: "wrap"
 };
 
 export default Ads;

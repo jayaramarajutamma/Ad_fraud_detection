@@ -13,6 +13,15 @@ const Navbar = () => {
     setIsLoggedIn(status === "true");
   }, []);
 
+  const handleProtectedClick = (e) => {
+  if (!isLoggedIn) {
+    e.preventDefault();
+    toast.warning("Please login first");
+    navigate("/login");
+  }
+};
+
+
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
     setIsLoggedIn(false);
@@ -45,14 +54,26 @@ const Navbar = () => {
 
         <nav style={{ display: 'flex', gap: '30px', marginLeft: '450px' }}>
 
-          <Link to="/" style={linkStyle}>Home</Link>
+          <Link to="/" style={linkStyle}>
+            Home
+          </Link>
 
-          <Link to="/ads" style={linkStyle} onClick={handleAdsClick}>
+          <Link to="/ads" style={linkStyle} onClick={handleProtectedClick}>
             Ads
           </Link>
 
-          <Link to="/reports" style={linkStyle}>Reports</Link>
-          <Link to="/about" style={linkStyle}>About</Link>
+          <Link to="/reports" style={linkStyle} onClick={handleProtectedClick}>
+            Reports
+          </Link>
+
+          {/* About is public */}
+          <Link to="/about" style={linkStyle}>
+            About
+          </Link>
+
+          <Link to="/create-ad" style={linkStyle} onClick={handleProtectedClick}>
+            Create Ad
+          </Link>
 
         </nav>
 

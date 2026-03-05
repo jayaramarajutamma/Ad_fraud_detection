@@ -7,6 +7,7 @@ import Home from './pages/Home'
 import Login from './pages/Login';
 import Register from './pages/Register';
 import  AdvertiserDashboard from './pages/AdvertiserDashboard'
+import CreateAd from "./pages/CreateAds"
 
 
 function App() {
@@ -21,6 +22,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/reports" element={<AdvertiserDashboard />} />
+        <Route path="/ads" element={<Ads/>}/>
+        <Route path="/create-ad" element={<CreateAd/>}/>
       </Routes>
 
     </Router>

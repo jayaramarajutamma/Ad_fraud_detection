@@ -24,6 +24,17 @@ CREATE TABLE IF NOT EXISTS click_logs(
     click_time TEXT
 )
 """)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS ads(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    description TEXT,
+    image TEXT,
+    app INTEGER,
+    channel INTEGER
+)
+""")
+
 
 conn.commit()
 conn.close()
