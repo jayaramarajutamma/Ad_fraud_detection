@@ -9,7 +9,7 @@ import Register from './pages/Register';
 import  AdvertiserDashboard from './pages/AdvertiserDashboard'
 import CreateAd from "./pages/CreateAds"
 import About from './pages/About';
-
+import AdReport from './pages/AdReport';
 
 function App() {
   return (
@@ -27,6 +27,7 @@ function App() {
         <Route path="/ads" element={<Ads/>}/>
         <Route path="/create-ad" element={<CreateAd/>}/>
         <Route path="/about" element={<About/>}/>
+        <Route path="/report/:adId" element={<AdReport />} />
       </Routes>
 
     </Router>

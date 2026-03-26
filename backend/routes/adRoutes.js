@@ -77,7 +77,7 @@ router.get("/ad-performance", async (req,res)=>{
     const fraudRate = total ? ((fraud/total)*100).toFixed(1) : 0;
 
     result.push({
-
+      id: ad.app, 
       name: ad.title,
       totalClicks: total,
       fraudClicks: fraud,
@@ -91,6 +91,78 @@ router.get("/ad-performance", async (req,res)=>{
 
 });
 
+
+// ----------------------------------
+// AD REPORT (REAL DATA)
+// ----------------------------------
+
+router.get("/ad-report/:app", async (req, res) => {
+
+  const app = parseInt(req.params.app);
+
+  const clicks = await Click.find({ app });
+
+  const total = clicks.length;
+
+  const fraud = clicks.filter(c => c.fraud_prediction === 1).length;
+
+  const genuine = total - fraud;
+
+  const rate = total ? ((fraud / total) * 100).toFixed(2) : 0;
+
+  // -----------------------------
+  // TREND (group by minute)
+  // -----------------------------
+  const trendMap = {};
+
+  clicks.forEach(c => {
+    const time = new Date(c.click_time);
+    const key = time.getHours() + ":" + time.getMinutes();
+
+    trendMap[key] = (trendMap[key] || 0) + 1;
+  });
+
+  const trend = Object.keys(trendMap).map(k => ({
+    time: k,
+    clicks: trendMap[k]
+  }));
+
+  // -----------------------------
+  // CONFUSION MATRIX (approx)
+  // -----------------------------
+  let tp = 0, tn = 0, fp = 0, fn = 0;
+
+  clicks.forEach(c => {
+    const predictedFraud = c.fraud_prediction === 1;
+    const riskHigh = c.fraud_prediction === 1; // simple assumption
+
+    if (predictedFraud && riskHigh) tp++;
+    else if (predictedFraud && !riskHigh) fn++;
+    else if (!predictedFraud && riskHigh) fp++;
+    else tn++;
+  });
+
+  // -----------------------------
+  // METRICS
+  // -----------------------------
+  const accuracy = total ? ((tp + tn) / total).toFixed(2) : 0;
+  const precision = (tp + fp) ? (tp / (tp + fp)).toFixed(2) : 0;
+  const recall = (tp + fn) ? (tp / (tp + fn)).toFixed(2) : 0;
+  const f1 = (precision && recall)
+    ? ((2 * precision * recall) / (parseFloat(precision) + parseFloat(recall))).toFixed(2)
+    : 0;
+
+  res.json({
+    total,
+    fraud,
+    genuine,
+    rate,
+    trend,
+    cm: { tp, tn, fp, fn },
+    metrics: { accuracy, precision, recall, f1 }
+  });
+
+});
 
 // ----------------------------------
 // RECENT SESSIONS

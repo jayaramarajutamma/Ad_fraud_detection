@@ -40,40 +40,106 @@ const Register = () => {
 };
 
   return (
-    <div style={container}>
-      <div style={box}>
+  <div style={page}>
+    <div style={card}>
 
-        <h2 style={{textAlign:'center'}}>Register</h2>
+      <h2 style={title}>Register</h2>
 
-        <input type="text" placeholder="Full Name" style={inputStyle} required
-          onChange={(e)=>setName(e.target.value)} />
+      <input
+        type="text"
+        placeholder="Full Name"
+        style={input}
+        onChange={(e)=>setName(e.target.value)}
+      />
 
-        <input type="email" placeholder="Email" style={inputStyle} required
-          onChange={(e)=>setEmail(e.target.value)} />
+      <input
+        type="email"
+        placeholder="Email"
+        style={input}
+        onChange={(e)=>setEmail(e.target.value)}
+      />
 
-        <input type="password" placeholder="Password" style={inputStyle} required
-          onChange={(e)=>setPassword(e.target.value)} />
+      <input
+        type="password"
+        placeholder="Password"
+        style={input}
+        onChange={(e)=>setPassword(e.target.value)}
+      />
 
-        <button style={buttonStyle} onClick={handleRegister}>
-          Register
-        </button>
-        <p style={{textAlign:'center'}}>
-          Already have an account?{" "}
-          <span style={{color:'#f5a623',cursor:'pointer'}}
-            onClick={()=>navigate('/login')}>
-            Login
-          </span>
-        </p>
+      <button style={button} onClick={handleRegister}>
+        Register
+      </button>
 
-      </div>
+      <p style={{textAlign:'center', marginTop:"15px"}}>
+        Already have an account?{" "}
+        <span
+          style={link}
+          onClick={()=>navigate('/login')}
+        >
+          Login
+        </span>
+      </p>
+
     </div>
-  );
+  </div>
+);
 };
 
-const container={height:'100vh',display:'flex',justifyContent:'center',alignItems:'center'}
-const box={background:'rgba(0,0,0,0.8)',padding:'40px',borderRadius:'10px',width:'300px',color:'#fff'}
+const page = {
+  height: "100vh",
+  width: "100vw",   
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "linear-gradient(135deg,#061418,#0f2d2f,#123c3a)",
+  fontFamily: "DM Sans",
+  overflow: "hidden"
+};
 
-const inputStyle={width:'100%',padding:'10px',margin:'10px 0'}
-const buttonStyle={width:'100%',padding:'10px',background:'#f5a623',border:'none',cursor: 'pointer'}
+const card = {
+  margin: "0 auto",
+  background: "rgba(255,255,255,0.05)",
+  backdropFilter: "blur(15px)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  padding: "40px",
+  width: "320px",
+  borderRadius: "16px",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+  color: "#fff"
+};
+
+const title = {
+  textAlign: "center",
+  marginBottom: "20px"
+};
+
+const input = {
+  width: "100%",
+  padding: "12px",
+  margin: "10px 0",
+  borderRadius: "8px",
+  border: "1px solid rgba(255,255,255,0.2)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#fff",
+  outline: "none"
+};
+
+const button = {
+  width: "100%",
+  padding: "12px",
+  background: "#22c55e",
+  border: "none",
+  borderRadius: "8px",
+  color: "#fff",
+  fontWeight: "600",
+  cursor: "pointer",
+  marginTop: "10px"
+};
+
+const link = {
+  color: "#f59e0b",
+  cursor: "pointer",
+  fontWeight: "500"
+};
 
 export default Register;

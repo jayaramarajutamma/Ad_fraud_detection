@@ -1,4 +1,8 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
+
+
 
 const statusBadge = (status) => {
   const map = {
@@ -36,6 +40,8 @@ const riskBadge = (risk) => {
 };
 
 export default function AdvertiserDashboard() {
+
+  const navigate = useNavigate();
 
   const [sessions,setSessions] = useState([]);
   const [stats,setStats] = useState({});
@@ -114,7 +120,11 @@ export default function AdvertiserDashboard() {
                   <Stat label="Genuine" value={genuineClicks} color="#22c55e" />
                   <Stat label="Fraud" value={ad.fraudClicks} color="#ef4444" />
                   <Stat label="Rate" value={ad.fraudRate} color="#f59e0b" />
+                  <button onClick={()=>navigate(`/report/${ad.id}`)} style={btn}>
+                    View Report
+                  </button>
                 </div>
+                
 
               </div>
             );
@@ -188,6 +198,20 @@ const adsGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
   gap: "20px"
+};
+
+const btn = {
+  padding: "10px 18px",
+  borderRadius: "10px",
+  border: "1px solid rgba(255,255,255,0.15)",
+  background: "rgba(255,255,255,0.08)",
+  backdropFilter: "blur(10px)",
+  color: "#e5e7eb",
+  fontSize: "13px",
+  fontWeight: "600",
+  cursor: "pointer",
+  transition: "all 0.25s ease",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
 };
 
 const glassCard = {
