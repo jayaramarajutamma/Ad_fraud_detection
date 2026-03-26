@@ -34,6 +34,12 @@ CREATE TABLE IF NOT EXISTS ads(
     channel INTEGER
 )
 """)
+cursor.execute("""
+               CREATE TABLE blocked_ips (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+ip TEXT UNIQUE,
+blocked_time TEXT
+);""")
 
 
 conn.commit()

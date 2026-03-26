@@ -10,6 +10,10 @@ const Login = () => {
   const [password,setPassword] = useState("");
 
   const handleLogin = async () => {
+    if(!email || !password){
+    toast.error("Email and Password are required");
+    return;
+  }
 
     const response = await fetch("http://127.0.0.1:5000/login",{
       method:"POST",
@@ -41,10 +45,10 @@ const Login = () => {
 
         <h2>Login</h2>
 
-        <input type="email" placeholder="Email" style={inputStyle}
+        <input type="email" placeholder="Email" style={inputStyle} required
           onChange={(e)=>setEmail(e.target.value)} />
 
-        <input type="password" placeholder="Password" style={inputStyle}
+        <input type="password" placeholder="Password" style={inputStyle} required
           onChange={(e)=>setPassword(e.target.value)} />
 
         <button style={buttonStyle} onClick={handleLogin}>
@@ -54,7 +58,7 @@ const Login = () => {
           Don't have an account?{" "}
           <span style={{color:'#f5a623',cursor:'pointer'}}
             onClick={()=>navigate('/register')}>
-            Regis
+            Register
           </span>
         </p>
 
@@ -64,6 +68,6 @@ const Login = () => {
 };
 
 const inputStyle={width:'100%',padding:'10px',margin:'10px 0'}
-const buttonStyle={width:'100%',padding:'10px',background:'#f5a623'}
+const buttonStyle={width:'100%',padding:'10px',background:'#f5a623',cursor: 'pointer'}
 
 export default Login;

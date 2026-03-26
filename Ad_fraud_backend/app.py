@@ -5,8 +5,8 @@ import numpy as np
 from datetime import datetime
 import joblib
 
-
 model = joblib.load("xgboost_hybrid_model.pkl")
+
 
 app = Flask(__name__)
 CORS(app)
@@ -261,6 +261,20 @@ def ad_click():
     data = request.json
 
     ip = request.remote_addr
+    # ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    conn = sqlite3.connect("adfraud.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM blocked_ips WHERE ip=?", (ip,))
+    blocked = cursor.fetchone()
+
+    if blocked:
+        conn.close()
+        return jsonify({
+            "fraud_prediction": 1,
+            "reason": ["IP blocked due to suspicious activity"]
+        })
     ip_encoded = hash(ip) % 100000
     app_id = data["app"]
     device = data["device"]
@@ -420,9 +434,42 @@ def ad_click():
             fraud_result = 1
             print("Burst attack detected")
 
+        elif ip_hour_clicks > 40:
+            fraud_result = 1
+
         else:
-            prediction = model.predict(features)
-            fraud_result = int(prediction[0])
+            prob = model.predict_proba(features)[0][1]
+            fraud_result  = 1 if prob > 0.03 else 0
+
+    
+    if fraud_result == 1:
+        cursor.execute("""
+            INSERT OR IGNORE INTO blocked_ips (ip, blocked_time)
+            VALUES (?, ?)
+    """, (ip, datetime.now().isoformat()))
+
+    reason = []
+
+
+    if fraud_result == 1:
+
+        if ip_time_diff < 0.5:
+            reason.append("Extremely fast clicks detected")
+
+        if recent_clicks > 10:
+            reason.append("Burst clicking behaviour detected")
+
+        if ip_hour_clicks > 30:
+            reason.append("High click frequency from same IP")
+
+        if ip_app_count > 15:
+            reason.append("Repeated clicks on same advertisement")
+
+    else:
+        reason.append("Click pattern matches normal user behaviour")
+
+    reason = reason[:2]
+            
 
 
     # store click
@@ -436,8 +483,9 @@ def ad_click():
     conn.close()
 
     return jsonify({
-        "fraud_prediction": fraud_result
-    })
+    "fraud_prediction": fraud_result,
+    "reason": reason
+})
 
 if __name__ == "__main__":
     app.run(debug=True)

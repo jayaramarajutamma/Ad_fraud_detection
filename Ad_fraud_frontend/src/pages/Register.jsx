@@ -12,16 +12,10 @@ const Register = () => {
 
   const handleRegister = async () => {
 
-    const response = await fetch("http://127.0.0.1:5000/register",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({name,email,password})
-    });
-
-    const data = await response.json();
-    console.log(data);
-
-    const handleRegister = async () => {
+  if(!name || !email || !password){
+    toast.error("All fields are required");
+    return;
+  }
 
   const response = await fetch("http://127.0.0.1:5000/register",{
     method:"POST",
@@ -31,18 +25,19 @@ const Register = () => {
 
   const data = await response.json();
 
-  if(data.message){
-
+  if(data.success){
     localStorage.setItem("isLoggedIn","true");
 
     toast.success("Registration successful");
 
     setTimeout(()=>{
-      window.location.href="/";
+      navigate("/");
     },1500);
+
+  }else{
+    toast.error(data.message);
   }
 };
-  };
 
   return (
     <div style={container}>
@@ -50,13 +45,13 @@ const Register = () => {
 
         <h2 style={{textAlign:'center'}}>Register</h2>
 
-        <input type="text" placeholder="Full Name" style={inputStyle}
+        <input type="text" placeholder="Full Name" style={inputStyle} required
           onChange={(e)=>setName(e.target.value)} />
 
-        <input type="email" placeholder="Email" style={inputStyle}
+        <input type="email" placeholder="Email" style={inputStyle} required
           onChange={(e)=>setEmail(e.target.value)} />
 
-        <input type="password" placeholder="Password" style={inputStyle}
+        <input type="password" placeholder="Password" style={inputStyle} required
           onChange={(e)=>setPassword(e.target.value)} />
 
         <button style={buttonStyle} onClick={handleRegister}>
@@ -79,6 +74,6 @@ const container={height:'100vh',display:'flex',justifyContent:'center',alignItem
 const box={background:'rgba(0,0,0,0.8)',padding:'40px',borderRadius:'10px',width:'300px',color:'#fff'}
 
 const inputStyle={width:'100%',padding:'10px',margin:'10px 0'}
-const buttonStyle={width:'100%',padding:'10px',background:'#f5a623',border:'none'}
+const buttonStyle={width:'100%',padding:'10px',background:'#f5a623',border:'none',cursor: 'pointer'}
 
 export default Register;

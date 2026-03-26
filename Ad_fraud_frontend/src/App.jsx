@@ -8,12 +8,14 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import  AdvertiserDashboard from './pages/AdvertiserDashboard'
 import CreateAd from "./pages/CreateAds"
+import About from './pages/About';
 
 
 function App() {
   return (
     <Router>
       <Navbar />
+      <div style={{ paddingTop: "50px" }}></div>
       <ToastContainer />
 
       <Routes>
@@ -24,6 +26,7 @@ function App() {
         <Route path="/reports" element={<AdvertiserDashboard />} />
         <Route path="/ads" element={<Ads/>}/>
         <Route path="/create-ad" element={<CreateAd/>}/>
+        <Route path="/about" element={<About/>}/>
       </Routes>
 
     </Router>
