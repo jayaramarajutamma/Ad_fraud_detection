@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import joblib
 import numpy as np
+import shap
 
 app = Flask(__name__)
 
@@ -20,6 +21,21 @@ channel_te_map = joblib.load("channel_te.pkl")
 # global mean fallback
 global_mean = joblib.load("global_mean.pkl")
 
+# -----------------------------
+# ✅ SHAP Tree Explainer (INIT ONCE)
+# -----------------------------
+explainer = shap.TreeExplainer(model)
+
+# Feature names (MUST match training order)
+feature_names = [
+    "click_time", "app", "device", "os", "channel",
+    "feature_5", "feature_6", "feature_7",
+    "ip_time_diff", "feature_9", "feature_10",
+    "feature_11", "feature_12", "feature_13",
+    "feature_14", "feature_15", "feature_16",
+    "app_te", "device_te", "os_te", "channel_te"
+]
+
 
 @app.route("/")
 def home():
@@ -31,7 +47,9 @@ def predict():
 
     data = request.json
 
-    # ✅ INPUT VALIDATION (ADD HERE)
+    # -----------------------------
+    # ✅ INPUT VALIDATION
+    # -----------------------------
     if not data or "features" not in data:
         return jsonify({"error": "Invalid input"}), 400
 
@@ -39,7 +57,7 @@ def predict():
     features = data["features"][0]
 
     # -----------------------------
-    # Extract raw categorical values
+    # Extract categorical values
     # -----------------------------
     app_id = int(features[1])
     device_id = int(features[2])
@@ -47,7 +65,7 @@ def predict():
     channel_id = int(features[4])
 
     # -----------------------------
-    # Compute correct target encodings
+    # Compute target encodings
     # -----------------------------
     app_te = app_te_map.get(app_id, global_mean)
     device_te = device_te_map.get(device_id, global_mean)
@@ -55,7 +73,7 @@ def predict():
     channel_te = channel_te_map.get(channel_id, global_mean)
 
     # -----------------------------
-    # Inject encodings into feature vector
+    # Inject encodings
     # -----------------------------
     print("FEATURES BEFORE TE:", features)
 
@@ -77,28 +95,56 @@ def predict():
     print("Fraud probability:", prob)
 
     THRESHOLD = 0.5
-
     fraud = 1 if prob > THRESHOLD else 0
 
-    # ✅ EXPLAINABILITY (ADD HERE)
-    reason = []
+    # -----------------------------
+    # ✅ AI EXPLAINABILITY (SHAP)
+    # -----------------------------
+    try:
+        shap_values = explainer.shap_values(features)
 
-    if prob > 0.8:
-        reason.append("High fraud probability")
+        contributions = shap_values[0]
 
-    # features[8] = ip_time_diff (based on your feature order)
-    if features[0][8] < 1:
-        reason.append("Very fast click behavior")
+        # Pair feature names with contribution values
+        feature_impact = list(zip(feature_names, contributions))
 
-    if len(reason) == 0:
-        reason.append("Normal click pattern")
+        # Sort by importance (absolute value)
+        feature_impact = sorted(feature_impact, key=lambda x: abs(x[1]), reverse=True)
 
+        reason = []
+
+        # Top 3 contributing features
+        for name, value in feature_impact[:3]:
+            if value > 0:
+                reason.append(f"{name} increases fraud risk")
+            else:
+                reason.append(f"{name} reduces fraud risk")
+
+        if len(reason) == 0:
+            reason.append("No strong indicators detected")
+
+    except Exception as e:
+        print("SHAP Error:", e)
+        reason = ["Explainability unavailable"]
+
+    # -----------------------------
+    # Response
+    # -----------------------------
     return jsonify({
-    "fraud_prediction": fraud,
-    "fraud_probability": float(prob),
-    "reason": reason
-})
+        "fraud_prediction": fraud,
+        "reason": reason
+    })
+
+from pymongo import MongoClient
+
+# -----------------------------
+# MongoDB Connection
+# -----------------------------
+client = MongoClient("mongodb://localhost:27017/")
+db = client["adfraud"]   # ⚠️ change this
+collection = db["clicks"]           # your collection name
 
 
+   
 if __name__ == "__main__":
     app.run(port=5001)

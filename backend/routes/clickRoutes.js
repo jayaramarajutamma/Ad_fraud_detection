@@ -1,9 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
-
+const BlockedIP = require("../models/BlockedIP");
 const Click = require("../models/Click");
 
+// -----------------------------
+// Device & OS Encoding Maps
+// -----------------------------
 const deviceMap = {
   Desktop: 0,
   Mobile: 1,
@@ -19,10 +22,9 @@ const osMap = {
 };
 
 // -----------------------------
-// Encode IP (same idea as Python hash)
+// Encode IP
 // -----------------------------
 function encodeIP(ip) {
-
   let hash = 0;
 
   for (let i = 0; i < ip.length; i++) {
@@ -31,13 +33,13 @@ function encodeIP(ip) {
   }
 
   return Math.abs(hash % 100000);
-
 }
 
+// -----------------------------
+// ROUTE: Ad Click
+// -----------------------------
 router.post("/ad-click", async (req, res) => {
-
   try {
-
     // -----------------------------
     // Capture IP
     // -----------------------------
@@ -47,7 +49,31 @@ router.post("/ad-click", async (req, res) => {
       ...req.body,
       ip
     };
+    const BlockedIP = require("../models/BlockedIP");
 
+    // -----------------------------
+    // 🚨 CHECK BLOCKED IP
+    // -----------------------------
+    const blockedIP = await BlockedIP.findOne({ ip });
+
+    if (blockedIP) {
+
+      const reason = ["IP blocked due to previous fraud activity"];
+
+      const click = new Click({
+        ...clickData,
+        fraud_prediction: 1,
+        reason
+      });
+
+      await click.save();
+
+      return res.json({
+        fraud_prediction: 1,
+        reason,
+        status: "BLOCKED"
+      });
+    }
     const clickTime = new Date(clickData.click_time);
 
     const day = clickTime.getDate();
@@ -63,7 +89,7 @@ router.post("/ad-click", async (req, res) => {
     const ip_encoded = encodeIP(ip);
 
     // -----------------------------
-    // Get previous clicks for IP
+    // Fetch previous clicks
     // -----------------------------
     const previousClicks = await Click.find({ ip })
       .sort({ click_time: -1 })
@@ -80,16 +106,13 @@ router.post("/ad-click", async (req, res) => {
     ).length;
 
     // -----------------------------
-    // Time gap features
+    // Time-based features
     // -----------------------------
     let ip_time_diff = 999999;
 
     if (previousClicks.length > 0) {
-
       const prevTime = new Date(previousClicks[0].click_time);
-
       ip_time_diff = (clickTime - prevTime) / 1000;
-
     }
 
     let ip_app_time_diff = 999999;
@@ -99,35 +122,33 @@ router.post("/ad-click", async (req, res) => {
     );
 
     if (prevAppClick) {
-
       const prevAppTime = new Date(prevAppClick.click_time);
-
       ip_app_time_diff = (clickTime - prevAppTime) / 1000;
-
     }
 
     // -----------------------------
-    // RULE BASED DETECTION
+    // 🚨 RULE-BASED DETECTION
     // -----------------------------
 
-    // Fast click detection (<0.5 seconds)
+    // Fast click (<0.5 sec)
     if (ip_time_diff < 0.5) {
+      const reason = ["Fast click detected"];
 
       const click = new Click({
         ...clickData,
-        fraud_prediction: 1
+        fraud_prediction: 1,
+        reason
       });
 
       await click.save();
 
       return res.json({
         fraud_prediction: 1,
-        reason: "Fast click detected"
+        reason
       });
-
     }
 
-    // Burst detection (>10 clicks in last 10 seconds)
+    // Burst attack (>10 clicks in 10 sec)
     const tenSecondsAgo = new Date(clickTime.getTime() - 10000);
 
     const recentClicks = await Click.countDocuments({
@@ -136,23 +157,24 @@ router.post("/ad-click", async (req, res) => {
     });
 
     if (recentClicks > 10) {
+      const reason = ["Burst attack detected"];
 
       const click = new Click({
         ...clickData,
-        fraud_prediction: 1
+        fraud_prediction: 1,
+        reason
       });
 
       await click.save();
 
       return res.json({
         fraud_prediction: 1,
-        reason: "Burst attack detected"
+        reason
       });
-
     }
 
     // -----------------------------
-    // Unique behaviour features
+    // Behavioral Features
     // -----------------------------
     const unique_app_per_ip =
       new Set(previousClicks.map(c => c.app)).size;
@@ -163,20 +185,13 @@ router.post("/ad-click", async (req, res) => {
     const unique_device_per_ip =
       new Set(previousClicks.map(c => c.device)).size;
 
-    // -----------------------------
-    // Hourly burst feature
-    // -----------------------------
     const ip_hour_clicks = previousClicks.filter(c => {
-
       const t = new Date(c.click_time);
-
       return t.getHours() === hour;
-
     }).length;
 
     // -----------------------------
-    // Target encoding placeholders
-    // (actual encoding done in ML service)
+    // Target Encoding placeholders
     // -----------------------------
     const app_te = 0;
     const device_te = 0;
@@ -184,7 +199,7 @@ router.post("/ad-click", async (req, res) => {
     const channel_te = 0;
 
     // -----------------------------
-    // Feature vector (21 features)
+    // Feature Vector (21 features)
     // -----------------------------
     const features = [[
       ip_encoded,
@@ -213,7 +228,7 @@ router.post("/ad-click", async (req, res) => {
     console.log("MODEL FEATURES:", features);
 
     // -----------------------------
-    // Send to ML service
+    // Send to ML Service
     // -----------------------------
     const prediction = await axios.post(
       "http://localhost:5001/predict",
@@ -221,31 +236,66 @@ router.post("/ad-click", async (req, res) => {
     );
 
     const fraud = prediction.data.fraud_prediction;
+    const reason = prediction.data.reason || ["No explanation available"];
 
     // -----------------------------
-    // Store click
+    // Store Click
     // -----------------------------
     const click = new Click({
       ...clickData,
-      fraud_prediction: fraud
+      fraud_prediction: fraud,
+      reason: reason,
     });
 
     await click.save();
 
+    // -----------------------------
+    // Final Response
+    // -----------------------------
     res.json({
-      fraud_prediction: fraud
+      fraud_prediction: fraud,
+      reason
     });
 
   } catch (error) {
-
     console.error("Error processing click:", error);
 
     res.status(500).json({
       error: "Server error"
     });
-
   }
 
+});
+
+router.get("/sessions", async (req, res) => {
+  try {
+
+    const clicks = await Click.find()
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    const sessions = clicks.map(c => ({
+
+      time: new Date(c.click_time).toLocaleString(),
+      ad: c.app,
+      clicks: 1,
+
+      status: c.status || (c.fraud_prediction ? "FRAUD" : "SERVING"),
+      risk: c.fraud_prediction ? "High" : "Low",
+
+      // ✅ THIS FIXES YOUR ISSUE
+      reason: c.reason && c.reason.length > 0
+        ? c.reason
+        : ["No reason available"]
+
+    }));
+
+    res.json(sessions);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch sessions" });
+  }
 });
 
 module.exports = router;

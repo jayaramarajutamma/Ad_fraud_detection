@@ -9,6 +9,7 @@ const statusBadge = (status) => {
     SERVING: "#22c55e",
     FRAUD: "#ef4444",
     PAUSED: "#f59e0b",
+    BLOCKED: "#6b7280",
   };
 
   return (
@@ -138,7 +139,7 @@ export default function AdvertiserDashboard() {
           <table style={table}>
             <thead>
               <tr>
-                {["Time","Ad","Clicks","Status","Risk"].map(h=>(
+                {["Time","Ad","Clicks","Status","Risk","Reason"].map(h=>(
                   <th key={h} style={th}>{h}</th>
                 ))}
               </tr>
@@ -152,6 +153,14 @@ export default function AdvertiserDashboard() {
                   <td style={td}>{s.clicks}</td>
                   <td style={td}>{statusBadge(s.status)}</td>
                   <td style={td}>{riskBadge(s.risk)}</td>
+
+                  {/* ✅ NEW REASON COLUMN */}
+                  <td style={td}>
+                    {Array.isArray(s.reason)
+                      ? s.reason.join(", ")
+                      : (s.reason || "N/A")}
+                  </td>
+
                 </tr>
               ))}
             </tbody>

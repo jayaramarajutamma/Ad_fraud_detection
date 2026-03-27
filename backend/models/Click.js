@@ -8,8 +8,16 @@ const ClickSchema = new mongoose.Schema({
   os: String,
   channel: Number,
   click_time: String,
-  fraud_prediction: Number
 
+  fraud_prediction: Number,
+
+  reason: {
+    type: [String],
+    default: []
+  },
+
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model("Click", ClickSchema);
