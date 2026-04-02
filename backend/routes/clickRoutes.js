@@ -57,23 +57,13 @@ router.post("/ad-click", async (req, res) => {
     const blockedIP = await BlockedIP.findOne({ ip });
 
     if (blockedIP) {
-
-      const reason = ["IP blocked due to previous fraud activity"];
-
-      const click = new Click({
-        ...clickData,
-        fraud_prediction: 1,
-        reason
-      });
-
-      await click.save();
-
-      return res.json({
-        fraud_prediction: 1,
-        reason,
-        status: "BLOCKED"
-      });
-    }
+  return res.status(403).json({
+    blocked: true,
+    fraud_prediction: 1,
+    reason: ["IP blocked due to previous fraud activity"],
+    status: "BLOCKED"
+  });
+}
     const clickTime = new Date(clickData.click_time);
 
     const day = clickTime.getDate();

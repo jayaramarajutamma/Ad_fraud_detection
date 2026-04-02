@@ -47,7 +47,12 @@ const Ads = () => {
     });
 
     const data = await response.json();
-    console.log(data);
+
+      // 🚫 BLOCKED
+      if (response.status === 403 || data.blocked) {
+        toast.error("🚫 IP blocked due to fraud!");
+        return;
+      }
   };
 
   function randomIP() {
